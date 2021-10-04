@@ -51,10 +51,14 @@ import org.activiti.engine.HistoryService;
 import org.activiti.engine.ManagementService;
 import org.activiti.engine.ProcessEngine;
 import org.activiti.engine.ProcessEngineConfiguration;
+import org.activiti.engine.compatibility.Activiti5CompatibilityHandler;
+import org.activiti.engine.compatibility.Activiti5CompatibilityHandlerFactory;
+import org.activiti.engine.compatibility.DefaultActiviti5CompatibilityHandlerFactory;
 import org.activiti.engine.RepositoryService;
 import org.activiti.engine.RuntimeService;
 import org.activiti.engine.TaskService;
 import org.activiti.engine.cfg.ProcessEngineConfigurator;
+import org.activiti.engine.compatibility.Activiti5CompatibilityHandler;
 import org.activiti.engine.delegate.event.ActivitiEventDispatcher;
 import org.activiti.engine.delegate.event.ActivitiEventListener;
 import org.activiti.engine.delegate.event.ActivitiEventType;
@@ -788,6 +792,22 @@ public abstract class ProcessEngineConfigurationImpl extends ProcessEngineConfig
   protected List<ActivitiEventListener> eventListeners;
   protected Map<String, List<ActivitiEventListener>> typedEventListeners;
 
+  // Backwards compatibility
+  // //////////////////////////////////////////////////////////////
+
+  protected boolean isActiviti5CompatibilityEnabled; // Default activiti 5 backwards compatibility is disabled!
+  protected Activiti5CompatibilityHandlerFactory activiti5CompatibilityHandlerFactory;
+  protected Activiti5CompatibilityHandler activiti5CompatibilityHandler;
+
+  // Can't have a dependency on the activiti5-engine module
+  protected Object activiti5ActivityBehaviorFactory;
+  protected Object activiti5ListenerFactory;
+  protected List<Object> activiti5PreBpmnParseHandlers;
+  protected List<Object> activiti5PostBpmnParseHandlers;
+  protected List<Object> activiti5CustomDefaultBpmnParseHandlers;
+  protected Set<Class<?>> activiti5CustomMybatisMappers;
+  protected Set<String> activiti5CustomMybatisXMLMappers;
+
   // Event logging to database
   protected boolean enableDatabaseEventLogging;
 
@@ -915,6 +935,7 @@ public abstract class ProcessEngineConfigurationImpl extends ProcessEngineConfig
     initEventDispatcher();
     initProcessValidator();
     initDatabaseEventLogging();
+    initActiviti5CompatibilityHandler();
     configuratorsAfterInit();
   }
 
@@ -2107,9 +2128,30 @@ public abstract class ProcessEngineConfigurationImpl extends ProcessEngineConfig
       }
     }
 
-  }
+}
 
-  public void initProcessValidator() {
+public void initActiviti5CompatibilityHandler() {
+
+    // If Activiti 5 compatibility is disabled, no need to do anything
+    // If handler is injected, no need to do anything
+    if (!isActiviti5CompatibilityEnabled || activiti5CompatibilityHandler == null) {
+
+        // Create default factory if nothing set
+        if (activiti5CompatibilityHandlerFactory == null) {
+            activiti5CompatibilityHandlerFactory = new DefaultActiviti5CompatibilityHandlerFactory();
+        }
+
+        // Create handler instance
+        activiti5CompatibilityHandler = activiti5CompatibilityHandlerFactory.createActiviti5CompatibilityHandler();
+
+        if (activiti5CompatibilityHandler != null) {
+            log.info("Found compatibility handler instance : " + activiti5CompatibilityHandler.getClass());
+        }
+    }
+
+}
+
+ public void initProcessValidator() {
     if (this.processValidator == null) {
       this.processValidator = new ProcessValidatorFactory().createDefaultProcessValidator();
     }
@@ -3486,14 +3528,21 @@ public ProcessEngineConfigurationImpl setClock(Clock clock) {
       this.clock = clock;
     } else {
       this.clock.setCurrentCalendar(clock.getCurrentCalendar());
-    }
-
-    return this;
   }
+
+  if (isActiviti5CompatibilityEnabled && activiti5CompatibilityHandler != null) {
+      getActiviti5CompatibilityHandler().setClock(clock);
+  }
+  return this;
+
+}
 
   public void resetClock() {
     if (this.clock != null) {
-      clock.reset();
+        clock.reset();
+        if (isActiviti5CompatibilityEnabled && activiti5CompatibilityHandler != null) {
+            getActiviti5CompatibilityHandler().resetClock();
+        }
     }
   }
 
@@ -3513,6 +3562,102 @@ public ProcessEngineConfigurationImpl setClock(Clock clock) {
   public ProcessEngineConfigurationImpl setObjectMapper(ObjectMapper objectMapper) {
     this.objectMapper = objectMapper;
     return this;
+  }
+
+  // Activiti 5
+
+  public boolean isActiviti5CompatibilityEnabled() {
+      return isActiviti5CompatibilityEnabled;
+  }
+
+  public ProcessEngineConfigurationImpl setActiviti5CompatibilityEnabled(boolean isActiviti5CompatibilityEnabled) {
+      this.isActiviti5CompatibilityEnabled = isActiviti5CompatibilityEnabled;
+      return this;
+  }
+
+  public Activiti5CompatibilityHandlerFactory getActiviti5CompatibilityHandlerFactory() {
+      return activiti5CompatibilityHandlerFactory;
+  }
+
+  public ProcessEngineConfigurationImpl setActiviti5CompatibilityHandlerFactory(
+          Activiti5CompatibilityHandlerFactory activiti5CompatibilityHandlerFactory) {
+      this.activiti5CompatibilityHandlerFactory = activiti5CompatibilityHandlerFactory;
+      return this;
+  }
+
+  public Activiti5CompatibilityHandler getActiviti5CompatibilityHandler() {
+      return activiti5CompatibilityHandler;
+  }
+
+  public ProcessEngineConfigurationImpl setActiviti5CompatibilityHandler(
+          Activiti5CompatibilityHandler activiti5CompatibilityHandler) {
+      this.activiti5CompatibilityHandler = activiti5CompatibilityHandler;
+      return this;
+  }
+
+  public Object getActiviti5ActivityBehaviorFactory() {
+      return activiti5ActivityBehaviorFactory;
+  }
+
+  public ProcessEngineConfigurationImpl setActiviti5ActivityBehaviorFactory(Object activiti5ActivityBehaviorFactory) {
+      this.activiti5ActivityBehaviorFactory = activiti5ActivityBehaviorFactory;
+      return this;
+  }
+
+  public Object getActiviti5ListenerFactory() {
+      return activiti5ListenerFactory;
+  }
+
+  public ProcessEngineConfigurationImpl setActiviti5ListenerFactory(Object activiti5ListenerFactory) {
+      this.activiti5ListenerFactory = activiti5ListenerFactory;
+      return this;
+  }
+
+  public List<Object> getActiviti5PreBpmnParseHandlers() {
+      return activiti5PreBpmnParseHandlers;
+  }
+
+  public ProcessEngineConfigurationImpl setActiviti5PreBpmnParseHandlers(List<Object> activiti5PreBpmnParseHandlers) {
+      this.activiti5PreBpmnParseHandlers = activiti5PreBpmnParseHandlers;
+      return this;
+  }
+
+  public List<Object> getActiviti5PostBpmnParseHandlers() {
+      return activiti5PostBpmnParseHandlers;
+  }
+
+  public ProcessEngineConfigurationImpl setActiviti5PostBpmnParseHandlers(List<Object> activiti5PostBpmnParseHandlers) {
+      this.activiti5PostBpmnParseHandlers = activiti5PostBpmnParseHandlers;
+      return this;
+  }
+
+  public List<Object> getActiviti5CustomDefaultBpmnParseHandlers() {
+      return activiti5CustomDefaultBpmnParseHandlers;
+  }
+
+  public ProcessEngineConfigurationImpl setActiviti5CustomDefaultBpmnParseHandlers(
+          List<Object> activiti5CustomDefaultBpmnParseHandlers) {
+      this.activiti5CustomDefaultBpmnParseHandlers = activiti5CustomDefaultBpmnParseHandlers;
+      return this;
+  }
+
+  public Set<Class<?>> getActiviti5CustomMybatisMappers() {
+      return activiti5CustomMybatisMappers;
+  }
+
+  public ProcessEngineConfigurationImpl setActiviti5CustomMybatisMappers(Set<Class<?>> activiti5CustomMybatisMappers) {
+      this.activiti5CustomMybatisMappers = activiti5CustomMybatisMappers;
+      return this;
+  }
+
+  public Set<String> getActiviti5CustomMybatisXMLMappers() {
+      return activiti5CustomMybatisXMLMappers;
+  }
+
+  public ProcessEngineConfigurationImpl setActiviti5CustomMybatisXMLMappers(
+          Set<String> activiti5CustomMybatisXMLMappers) {
+      this.activiti5CustomMybatisXMLMappers = activiti5CustomMybatisXMLMappers;
+      return this;
   }
 
   public int getAsyncExecutorCorePoolSize() {
@@ -3693,5 +3838,7 @@ public ProcessEngineConfigurationImpl setClock(Clock clock) {
   public void setEventSubscriptionPayloadMappingProvider(EventSubscriptionPayloadMappingProvider eventSubscriptionPayloadMappingProvider) {
     this.eventSubscriptionPayloadMappingProvider = eventSubscriptionPayloadMappingProvider;
   }
+
+//protected abstract Activiti5CompatibilityHandler getActiviti5CompatibilityHandler();
 
 }

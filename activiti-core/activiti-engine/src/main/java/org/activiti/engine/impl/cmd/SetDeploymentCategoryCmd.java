@@ -24,6 +24,7 @@ import org.activiti.engine.impl.interceptor.Command;
 import org.activiti.engine.impl.interceptor.CommandContext;
 import org.activiti.engine.impl.persistence.entity.DeploymentEntity;
 import org.activiti.engine.repository.Deployment;
+import org.activiti.engine.compatibility.Activiti5CompatibilityHandler;
 
 /**
 
@@ -48,9 +49,15 @@ public class SetDeploymentCategoryCmd implements Command<Void> {
 
     if (deployment == null) {
       throw new ActivitiObjectNotFoundException("No deployment found for id = '" + deploymentId + "'", Deployment.class);
-    }
+  }
+  if (commandContext.getProcessEngineConfiguration().isActiviti5CompatibilityEnabled()
+          && Activiti5CompatibilityHandler.ACTIVITI_5_ENGINE_TAG.equals(deployment.getEngineVersion())) {
 
-    // Update category
+      commandContext.getProcessEngineConfiguration().getActiviti5CompatibilityHandler()
+              .setDeploymentCategory(deploymentId, category);
+  }
+
+  // Update category
     deployment.setCategory(category);
 
     if (commandContext.getProcessEngineConfiguration().getEventDispatcher().isEnabled()) {

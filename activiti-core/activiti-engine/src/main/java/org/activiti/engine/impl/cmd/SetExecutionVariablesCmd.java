@@ -20,6 +20,8 @@ import java.util.Map;
 
 import org.activiti.engine.impl.interceptor.CommandContext;
 import org.activiti.engine.impl.persistence.entity.ExecutionEntity;
+import org.activiti.engine.compatibility.Activiti5CompatibilityHandler;
+import org.activiti.engine.impl.util.Activiti5Util;
 
 /**
 
@@ -39,7 +41,14 @@ public class SetExecutionVariablesCmd extends NeedsActiveExecutionCmd<Object> {
   }
 
   protected Object execute(CommandContext commandContext, ExecutionEntity execution) {
-    if (isLocal) {
+
+      if (Activiti5Util.isActiviti5ProcessDefinitionId(commandContext, execution.getProcessDefinitionId())) {
+          Activiti5CompatibilityHandler activiti5CompatibilityHandler = Activiti5Util
+                  .getActiviti5CompatibilityHandler();
+          activiti5CompatibilityHandler.setExecutionVariables(executionId, variables, isLocal);
+          return null;
+      }
+      if (isLocal) {
       if (variables != null) {
         for (String variableName : variables.keySet()) {
           execution.setVariableLocal(variableName, variables.get(variableName), false);

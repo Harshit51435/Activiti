@@ -31,6 +31,8 @@ import org.activiti.engine.impl.persistence.entity.data.DataManager;
 import org.activiti.engine.impl.persistence.entity.data.TaskDataManager;
 import org.activiti.engine.task.IdentityLinkType;
 import org.activiti.engine.task.Task;
+import org.activiti.engine.compatibility.Activiti5CompatibilityHandler;
+import org.activiti.engine.impl.util.Activiti5Util;
 
 /**
 
@@ -297,9 +299,13 @@ public class TaskEntityManagerImpl extends AbstractEntityManager<TaskEntity> imp
     if (task != null) {
       if (task.getExecutionId() != null) {
         throw new ActivitiException("The task cannot be deleted because is part of a running process");
-      }
-
-      deleteTask(task, deleteReason, cascade, cancel);
+    }
+    if (Activiti5Util.isActiviti5ProcessDefinitionId(getCommandContext(), task.getProcessDefinitionId())) {
+        Activiti5CompatibilityHandler activiti5CompatibilityHandler = Activiti5Util.getActiviti5CompatibilityHandler();
+        activiti5CompatibilityHandler.deleteTask(taskId, deleteReason, cascade);
+        return;
+    }
+    deleteTask(task, deleteReason, cascade, cancel);
     } else if (cascade) {
       getHistoricTaskInstanceEntityManager().delete(taskId);
     }

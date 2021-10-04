@@ -31,6 +31,8 @@ import org.activiti.engine.task.IdentityLinkType;
 import org.activiti.engine.task.Task;
 import org.activiti.engine.task.TaskInfo;
 import org.apache.commons.lang3.StringUtils;
+import org.activiti.engine.compatibility.Activiti5CompatibilityHandler;
+import org.activiti.engine.impl.util.Activiti5Util;
 
 /**
 
@@ -48,9 +50,15 @@ public class SaveTaskCmd implements Command<Task>, Serializable {
   public Task execute(CommandContext commandContext) {
     if (task == null) {
       throw new ActivitiIllegalArgumentException("task is null");
-    }
+  }
+  if (task.getProcessDefinitionId() != null
+          && Activiti5Util.isActiviti5ProcessDefinitionId(commandContext, task.getProcessDefinitionId())) {
+      Activiti5CompatibilityHandler activiti5CompatibilityHandler = Activiti5Util.getActiviti5CompatibilityHandler();
+      activiti5CompatibilityHandler.saveTask(task);
+      return null;
+  }
 
-    if (task.getRevision() == 0) {
+  if (task.getRevision() == 0) {
       commandContext.getTaskEntityManager().insert(task, null);
 
       if (commandContext.getEventDispatcher().isEnabled()) {

@@ -288,6 +288,10 @@ public interface RepositoryService {
    */
   ProcessDefinition getProcessDefinition(String processDefinitionId);
 
+  /**
+   * Checks if the process definition should be executed by the Activiti 5 engine.
+   */
+  Boolean isActiviti5ProcessDefinition(String processDefinitionId);
 
   /**
    * Checks if the process definition is suspended.

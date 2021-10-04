@@ -36,6 +36,8 @@ import org.activiti.engine.impl.persistence.entity.DeploymentEntityManager;
 import org.activiti.engine.impl.persistence.entity.ProcessDefinitionEntity;
 import org.activiti.engine.impl.persistence.entity.ProcessDefinitionEntityManager;
 import org.activiti.engine.repository.ProcessDefinition;
+import org.activiti.engine.compatibility.Activiti5CompatibilityHandler;
+import org.activiti.engine.impl.util.Activiti5Util;
 
 /**
 
@@ -121,49 +123,67 @@ public class DeploymentManager {
     ProcessDefinitionCacheEntry cachedProcessDefinition = processDefinitionCache.get(processDefinitionId);
 
     if (cachedProcessDefinition == null) {
-      CommandContext commandContext = Context.getCommandContext();
-      DeploymentEntity deployment = deploymentEntityManager.findById(deploymentId);
-      deployment.setNew(false);
-      deploy(deployment, null);
-      cachedProcessDefinition = processDefinitionCache.get(processDefinitionId);
+        CommandContext commandContext = Context.getCommandContext();
+        if (commandContext.getProcessEngineConfiguration().isActiviti5CompatibilityEnabled()
+                && Activiti5Util.isActiviti5ProcessDefinition(Context.getCommandContext(), processDefinition)) {
 
-      if (cachedProcessDefinition == null) {
-        throw new ActivitiException("deployment '" + deploymentId + "' didn't put process definition '" + processDefinitionId + "' in the cache");
-      }
+            return Activiti5Util.getActiviti5CompatibilityHandler().resolveProcessDefinition(processDefinition);
+        }
+        DeploymentEntity deployment = deploymentEntityManager.findById(deploymentId);
+        deployment.setNew(false);
+        deploy(deployment, null);
+        cachedProcessDefinition = processDefinitionCache.get(processDefinitionId);
+
+        if (cachedProcessDefinition == null) {
+            throw new ActivitiException("deployment '" + deploymentId + "' didn't put process definition '"
+                    + processDefinitionId + "' in the cache");
+        }
     }
     return cachedProcessDefinition;
   }
 
   public void removeDeployment(String deploymentId, boolean cascade) {
 
-    DeploymentEntity deployment = deploymentEntityManager.findById(deploymentId);
-    if (deployment == null) {
-      throw new ActivitiObjectNotFoundException("Could not find a deployment with id '" + deploymentId + "'.", DeploymentEntity.class);
-    }
-
-    // Remove any process definition from the cache
-    List<ProcessDefinition> processDefinitions = new ProcessDefinitionQueryImpl().deploymentId(deploymentId).list();
-    ActivitiEventDispatcher eventDispatcher = Context.getProcessEngineConfiguration().getEventDispatcher();
-
-    for (ProcessDefinition processDefinition : processDefinitions) {
-
-      // Since all process definitions are deleted by a single query, we should dispatch the events in this loop
-      if (eventDispatcher.isEnabled()) {
-        eventDispatcher.dispatchEvent(ActivitiEventBuilder.createEntityEvent(ActivitiEventType.ENTITY_DELETED, processDefinition));
+      DeploymentEntity deployment = deploymentEntityManager.findById(deploymentId);
+      if (deployment == null) {
+          throw new ActivitiObjectNotFoundException("Could not find a deployment with id '" + deploymentId + "'.",
+                  DeploymentEntity.class);
       }
-    }
 
-    // Delete data
-    deploymentEntityManager.deleteDeployment(deploymentId, cascade);
+      if (processEngineConfiguration.isActiviti5CompatibilityEnabled()
+              && Activiti5CompatibilityHandler.ACTIVITI_5_ENGINE_TAG.equals(deployment.getEngineVersion())) {
 
-    // Since we use a delete by query, delete-events are not automatically dispatched
-    if (eventDispatcher.isEnabled()) {
-      eventDispatcher.dispatchEvent(ActivitiEventBuilder.createEntityEvent(ActivitiEventType.ENTITY_DELETED, deployment));
-    }
+          processEngineConfiguration.getActiviti5CompatibilityHandler().deleteDeployment(deploymentId, cascade);
+          return;
+      }
 
-    for (ProcessDefinition processDefinition : processDefinitions) {
-      processDefinitionCache.remove(processDefinition.getId());
-    }
+      // Remove any process definition from the cache
+      List<ProcessDefinition> processDefinitions = new ProcessDefinitionQueryImpl().deploymentId(deploymentId).list();
+      ActivitiEventDispatcher eventDispatcher = Context.getProcessEngineConfiguration().getEventDispatcher();
+
+      for (ProcessDefinition processDefinition : processDefinitions) {
+
+          // Since all process definitions are deleted by a single query, we should
+          // dispatch the events in this loop
+          if (eventDispatcher.isEnabled()) {
+              eventDispatcher.dispatchEvent(
+                      ActivitiEventBuilder.createEntityEvent(ActivitiEventType.ENTITY_DELETED, processDefinition));
+          }
+      }
+
+      // Delete data
+      deploymentEntityManager.deleteDeployment(deploymentId, cascade);
+
+      // Since we use a delete by query, delete-events are not automatically
+      // dispatched
+      if (eventDispatcher.isEnabled()) {
+          eventDispatcher
+                  .dispatchEvent(ActivitiEventBuilder.createEntityEvent(ActivitiEventType.ENTITY_DELETED, deployment));
+      }
+
+      for (ProcessDefinition processDefinition : processDefinitions) {
+          processDefinitionCache.remove(processDefinition.getId());
+      }
   }
 
   // getters and setters

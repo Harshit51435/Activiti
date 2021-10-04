@@ -25,6 +25,8 @@ import org.activiti.engine.impl.interceptor.Command;
 import org.activiti.engine.impl.interceptor.CommandContext;
 import org.activiti.engine.impl.persistence.entity.AttachmentEntity;
 import org.activiti.engine.impl.persistence.entity.ExecutionEntity;
+import org.activiti.engine.compatibility.Activiti5CompatibilityHandler;
+import org.activiti.engine.impl.util.Activiti5Util;
 
 /**
 
@@ -47,7 +49,13 @@ public class DeleteAttachmentCmd implements Command<Object>, Serializable {
     if (attachment.getProcessInstanceId() != null) {
       ExecutionEntity process = commandContext.getExecutionEntityManager().findById(processInstanceId);
       if (process != null) {
-        processDefinitionId = process.getProcessDefinitionId();
+          processDefinitionId = process.getProcessDefinitionId();
+          if (Activiti5Util.isActiviti5ProcessDefinitionId(commandContext, process.getProcessDefinitionId())) {
+              Activiti5CompatibilityHandler activiti5CompatibilityHandler = Activiti5Util
+                      .getActiviti5CompatibilityHandler();
+              activiti5CompatibilityHandler.deleteAttachment(attachmentId);
+              return null;
+          }
       }
     }
 

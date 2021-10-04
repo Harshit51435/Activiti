@@ -23,6 +23,7 @@ import java.util.List;
 
 import org.activiti.bpmn.model.BpmnModel;
 import org.activiti.engine.RepositoryService;
+import org.activiti.engine.impl.cmd.IsActiviti5ProcessDefinitionCmd;
 import org.activiti.engine.impl.cmd.ActivateProcessDefinitionCmd;
 import org.activiti.engine.impl.cmd.AddEditorSourceExtraForModelCmd;
 import org.activiti.engine.impl.cmd.AddEditorSourceForModelCmd;
@@ -136,9 +137,13 @@ public class RepositoryServiceImpl extends ServiceImpl implements RepositoryServ
   @Override
   public NativeDeploymentQuery createNativeDeploymentQuery() {
     return new NativeDeploymentQueryImpl(commandExecutor);
-  }
+}
 
-  public ProcessDefinition getProcessDefinition(String processDefinitionId) {
+public Boolean isActiviti5ProcessDefinition(String processDefinitionId) {
+    return commandExecutor.execute(new IsActiviti5ProcessDefinitionCmd(processDefinitionId));
+}
+
+public ProcessDefinition getProcessDefinition(String processDefinitionId) {
     return commandExecutor.execute(new GetDeploymentProcessDefinitionCmd(processDefinitionId));
   }
 

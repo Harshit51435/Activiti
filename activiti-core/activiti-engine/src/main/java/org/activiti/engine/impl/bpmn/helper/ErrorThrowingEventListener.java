@@ -22,6 +22,8 @@ import org.activiti.engine.delegate.event.ActivitiEventListener;
 import org.activiti.engine.impl.context.Context;
 import org.activiti.engine.impl.interceptor.CommandContext;
 import org.activiti.engine.impl.persistence.entity.ExecutionEntity;
+import org.activiti.engine.compatibility.Activiti5CompatibilityHandler;
+import org.activiti.engine.impl.util.Activiti5Util;
 
 /**
  * An {@link ActivitiEventListener} that throws a error event when an event is dispatched to it.
@@ -37,8 +39,17 @@ public class ErrorThrowingEventListener extends BaseDelegateEventListener {
   public void onEvent(ActivitiEvent event) {
     if (isValidEvent(event)) {
 
-      CommandContext commandContext = Context.getCommandContext();
-      ExecutionEntity execution = null;
+        CommandContext commandContext = Context.getCommandContext();
+
+        if (event.getProcessDefinitionId() != null
+                && Activiti5Util.isActiviti5ProcessDefinitionId(commandContext, event.getProcessDefinitionId())) {
+            Activiti5CompatibilityHandler activiti5CompatibilityHandler = Activiti5Util
+                    .getActiviti5CompatibilityHandler();
+            activiti5CompatibilityHandler.throwErrorEvent(event);
+            return;
+        }
+
+        ExecutionEntity execution = null;
 
       if (event.getExecutionId() != null) {
         // Get the execution based on the event's execution ID instead
